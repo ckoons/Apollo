@@ -23,6 +23,43 @@ from apollo.core.context_observer import ContextObserver
 from apollo.core.predictive_engine import PredictiveEngine
 from apollo.core.action_planner import ActionPlanner
 from apollo.core.interfaces.rhetor import RhetorInterface
+from apollo.core.message_handler import MessageHandler
+from apollo.core.protocol_enforcer import ProtocolEnforcer
+from apollo.core.token_budget import TokenBudgetManager
+
+# Import FastMCP integration
+try:
+    # Import FastMCP functionality
+    from tekton.mcp.fastmcp import (
+        MCPClient,
+        adapt_tool,
+        adapt_processor,
+        MCPRouter,
+        MCPProcessor
+    )
+    from tekton.mcp.fastmcp.schema import (
+        MCPRequest, 
+        MCPResponse,
+        MCPTool,
+        MCPCapability
+    )
+    
+    # Import our MCP module tools
+    from apollo.core.mcp import (
+        fastmcp_available,
+        register_action_planning_tools,
+        register_context_tools,
+        register_message_tools,
+        register_prediction_tools,
+        register_protocol_tools,
+        register_budget_tools,
+        get_capabilities,
+        get_tools
+    )
+    fastmcp_available = True
+except ImportError:
+    fastmcp_available = False
+    logger.warning("FastMCP integration not available, some MCP functionality will be limited")
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -41,7 +78,10 @@ class ApolloManager:
         rhetor_interface: Optional[RhetorInterface] = None,
         data_dir: Optional[str] = None,
         enable_predictive: bool = True,
-        enable_actions: bool = True
+        enable_actions: bool = True,
+        enable_message_handler: bool = True,
+        enable_protocol_enforcer: bool = True,
+        enable_token_budget: bool = True
     ):
         """
         Initialize the Apollo Manager.
@@ -51,6 +91,9 @@ class ApolloManager:
             data_dir: Root directory for storing data
             enable_predictive: Whether to enable the predictive engine
             enable_actions: Whether to enable the action planner
+            enable_message_handler: Whether to enable the message handler
+            enable_protocol_enforcer: Whether to enable the protocol enforcer
+            enable_token_budget: Whether to enable the token budget
         """
         # Set up data directory
         self.data_dir = data_dir or os.path.expanduser("~/.tekton/apollo")
@@ -60,6 +103,9 @@ class ApolloManager:
         context_data_dir = os.path.join(self.data_dir, "context_data")
         prediction_data_dir = os.path.join(self.data_dir, "prediction_data")
         action_data_dir = os.path.join(self.data_dir, "action_data")
+        message_data_dir = os.path.join(self.data_dir, "message_data")
+        protocol_data_dir = os.path.join(self.data_dir, "protocol_data")
+        budget_data_dir = os.path.join(self.data_dir, "budget_data")
         
         # Create rhetor interface if not provided
         self.rhetor_interface = rhetor_interface or RhetorInterface()
@@ -80,6 +126,20 @@ class ApolloManager:
             predictive_engine=self.predictive_engine,
             data_dir=action_data_dir
         ) if enable_actions else None
+        
+        # Initialize additional components for MCP
+        self.message_handler = MessageHandler(
+            rhetor_interface=self.rhetor_interface,
+            data_dir=message_data_dir
+        ) if enable_message_handler else None
+        
+        self.protocol_enforcer = ProtocolEnforcer(
+            data_dir=protocol_data_dir
+        ) if enable_protocol_enforcer else None
+        
+        self.token_budget_manager = TokenBudgetManager(
+            data_dir=budget_data_dir
+        ) if enable_token_budget else None
         
         # For task management
         self.is_running = False
@@ -138,6 +198,53 @@ class ApolloManager:
         if self.action_planner:
             await self.action_planner.start()
             
+        # Start message handler if enabled
+        if self.message_handler:
+            await self.message_handler.start()
+            
+        # Start protocol enforcer if enabled
+        if self.protocol_enforcer:
+            await self.protocol_enforcer.start()
+            
+        # Start token budget manager if enabled
+        if self.token_budget_manager:
+            await self.token_budget_manager.start()
+            
+        # Register MCP tools if FastMCP is available
+        if fastmcp_available:
+            try:
+                # Create a dummy tool registry for now
+                # In a full implementation, we would use a proper tool registry
+                class DummyToolRegistry:
+                    async def register_tool(self, tool_spec):
+                        logger.info(f"Registering tool: {tool_spec.get('name')}")
+                        return tool_spec.get("id")
+                
+                tool_registry = DummyToolRegistry()
+                
+                # Register tools for each component
+                if self.action_planner:
+                    await register_action_planning_tools(self.action_planner, tool_registry)
+                    
+                if self.context_observer:
+                    await register_context_tools(self.context_observer, tool_registry)
+                    
+                if self.message_handler:
+                    await register_message_tools(self.message_handler, tool_registry)
+                    
+                if self.predictive_engine:
+                    await register_prediction_tools(self.predictive_engine, tool_registry)
+                    
+                if self.protocol_enforcer:
+                    await register_protocol_tools(self.protocol_enforcer, tool_registry)
+                    
+                if self.token_budget_manager:
+                    await register_budget_tools(self.token_budget_manager, tool_registry)
+                    
+                logger.info("Registered MCP tools")
+            except Exception as e:
+                logger.error(f"Error registering MCP tools: {e}")
+            
         logger.info("Apollo Manager started")
     
     async def stop(self):
@@ -149,6 +256,15 @@ class ApolloManager:
         self.is_running = False
         
         # Stop components in reverse order
+        if self.token_budget_manager:
+            await self.token_budget_manager.stop()
+            
+        if self.protocol_enforcer:
+            await self.protocol_enforcer.stop()
+            
+        if self.message_handler:
+            await self.message_handler.stop()
+            
         if self.action_planner:
             await self.action_planner.stop()
             
@@ -402,7 +518,8 @@ class ApolloManager:
             "critical_actions": critical_actions,
             "actionable_now": actionable_now,
             "components_status": components_status,
-            "system_running": self.is_running
+            "system_running": self.is_running,
+            "fastmcp_available": fastmcp_available
         }
     
     def get_context_dashboard(self, context_id: str) -> Dict[str, Any]:
@@ -455,3 +572,314 @@ class ApolloManager:
                 "age_minutes": (datetime.now() - state.creation_time).total_seconds() / 60.0
             }
         }
+    
+    # MCP Request Processing
+    
+    def get_mcp_capabilities(self) -> List[MCPCapability]:
+        """
+        Get all MCP capabilities from Apollo.
+        
+        Returns:
+            List of MCP capabilities
+        """
+        if not fastmcp_available:
+            return []
+            
+        return get_capabilities(self)
+    
+    def get_mcp_tools(self) -> List[MCPTool]:
+        """
+        Get all MCP tools from Apollo.
+        
+        Returns:
+            List of MCP tools
+        """
+        if not fastmcp_available:
+            return []
+            
+        return get_tools(self)
+    
+    async def process_fastmcp_request(self, request: MCPRequest) -> MCPResponse:
+        """
+        Process a FastMCP request.
+        
+        Args:
+            request: The FastMCP request
+            
+        Returns:
+            MCPResponse object
+        """
+        if not fastmcp_available:
+            return MCPResponse(
+                status="error",
+                error="FastMCP is not available",
+                result=None
+            )
+            
+        try:
+            # Get the tool name from the request
+            tool_name = request.tool
+            
+            # Get available tools
+            tools = self.get_mcp_tools()
+            tool_names = {tool.name: tool for tool in tools}
+            
+            # Check if the requested tool exists
+            if tool_name not in tool_names:
+                return MCPResponse(
+                    status="error",
+                    error=f"Tool '{tool_name}' not found",
+                    result=None
+                )
+                
+            # Find the actual tool implementation by loading the right module
+            # This is a simplified example - in reality, you would use a more robust approach
+            tool_impl = None
+            
+            if tool_name.startswith("apollo_observe_context"):
+                from apollo.core.mcp.tools import observe_context
+                tool_impl = observe_context
+            elif tool_name.startswith("apollo_list_contexts"):
+                from apollo.core.mcp.tools import list_contexts
+                tool_impl = list_contexts
+            elif tool_name.startswith("apollo_get_context_details"):
+                from apollo.core.mcp.tools import get_context_details
+                tool_impl = get_context_details
+            elif tool_name.startswith("apollo_get_context_health"):
+                from apollo.core.mcp.tools import get_context_health
+                tool_impl = get_context_health
+            elif tool_name.startswith("apollo_allocate_budget"):
+                from apollo.core.mcp.tools import allocate_budget
+                tool_impl = allocate_budget
+            elif tool_name.startswith("apollo_check_budget"):
+                from apollo.core.mcp.tools import check_budget
+                tool_impl = check_budget
+            elif tool_name.startswith("apollo_check_protocol_compliance"):
+                from apollo.core.mcp.tools import check_protocol_compliance
+                tool_impl = check_protocol_compliance
+            elif tool_name.startswith("apollo_list_protocol_violations"):
+                from apollo.core.mcp.tools import list_protocol_violations
+                tool_impl = list_protocol_violations
+            elif tool_name.startswith("apollo_list_actions"):
+                from apollo.core.mcp.tools import list_actions
+                tool_impl = list_actions
+            elif tool_name.startswith("apollo_get_critical_actions"):
+                from apollo.core.mcp.tools import get_critical_actions
+                tool_impl = get_critical_actions
+            elif tool_name.startswith("apollo_get_prediction"):
+                from apollo.core.mcp.tools import get_prediction
+                tool_impl = get_prediction
+            elif tool_name.startswith("apollo_get_predictions_by_health"):
+                from apollo.core.mcp.tools import get_predictions_by_health
+                tool_impl = get_predictions_by_health
+            
+            if not tool_impl:
+                return MCPResponse(
+                    status="error",
+                    error=f"Tool implementation for '{tool_name}' not found",
+                    result=None
+                )
+                
+            # Call the tool with the request parameters
+            # Add self as the first parameter since these tools expect the apollo_manager
+            result = await tool_impl(self, **request.parameters)
+            
+            # Return the response
+            return MCPResponse(
+                status="success",
+                error=None,
+                result=result
+            )
+                
+        except Exception as e:
+            logger.error(f"Error processing FastMCP request: {e}")
+            return MCPResponse(
+                status="error",
+                error=f"Error processing request: {str(e)}",
+                result=None
+            )
+    
+    async def process_mcp_request(
+        self,
+        content: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Process an MCP request.
+        
+        Args:
+            content: Request content
+            context: Optional context information
+            
+        Returns:
+            MCP response
+        """
+        try:
+            # Extract request information
+            request_type = content.get("type", "unknown")
+            request_data = content.get("data", {})
+            
+            # Initialize response
+            response = {
+                "content": {},
+                "context": context.copy() if context else {}
+            }
+            
+            # Handle different request types
+            if request_type == "action_planning":
+                # Process action planning request
+                if self.action_planner:
+                    goal = request_data.get("goal", "")
+                    if goal:
+                        plan = await self.action_planner.create_plan(
+                            goal=goal,
+                            context=context or {},
+                            max_steps=request_data.get("max_steps", 5)
+                        )
+                        
+                        response["content"] = {
+                            "plan": plan,
+                            "goal": goal
+                        }
+                else:
+                    response["content"] = {"error": "Action planner is not enabled"}
+                    
+            elif request_type == "context_analysis":
+                # Process context analysis request
+                if self.context_observer:
+                    analysis = await self.context_observer.analyze_context(
+                        context=context or {},
+                        focus_areas=request_data.get("focus_areas")
+                    )
+                    
+                    response["content"] = {
+                        "analysis": analysis
+                    }
+                else:
+                    response["content"] = {"error": "Context observer is not enabled"}
+                    
+            elif request_type == "prediction":
+                # Process prediction request
+                if self.predictive_engine:
+                    if request_data.get("predict_action", False):
+                        prediction = await self.predictive_engine.predict_next_action(
+                            context=context or {},
+                            history=request_data.get("history", [])
+                        )
+                    else:
+                        prediction = await self.predictive_engine.predict_outcome(
+                            action=request_data.get("action", {}),
+                            context=context or {}
+                        )
+                        
+                    response["content"] = {
+                        "prediction": prediction
+                    }
+                else:
+                    response["content"] = {"error": "Predictive engine is not enabled"}
+                    
+            elif request_type == "message":
+                # Process message request
+                if self.message_handler:
+                    message = request_data.get("message", {})
+                    if request_data.get("analyze", False):
+                        result = await self.message_handler.analyze_message(
+                            message=message,
+                            context=context
+                        )
+                        response["content"] = {
+                            "analysis": result
+                        }
+                    else:
+                        response_text = await self.message_handler.generate_response(
+                            message=message,
+                            context=context or {},
+                            response_type=request_data.get("response_type", "chat")
+                        )
+                        
+                        response["content"] = {
+                            "response": response_text
+                        }
+                else:
+                    response["content"] = {"error": "Message handler is not enabled"}
+                    
+            elif request_type == "protocol":
+                # Process protocol request
+                if self.protocol_enforcer:
+                    message = request_data.get("message", {})
+                    protocol_name = request_data.get("protocol_name", "default")
+                    
+                    if request_data.get("validate", True):
+                        result = await self.protocol_enforcer.validate_message(
+                            message=message,
+                            protocol_name=protocol_name
+                        )
+                        
+                        response["content"] = {
+                            "validation": result
+                        }
+                    else:
+                        result = await self.protocol_enforcer.enforce_protocol(
+                            message=message,
+                            protocol_name=protocol_name
+                        )
+                        
+                        response["content"] = {
+                            "enforced_message": result.get("message"),
+                            "changes": result.get("changes", [])
+                        }
+                else:
+                    response["content"] = {"error": "Protocol enforcer is not enabled"}
+                    
+            elif request_type == "budget":
+                # Process budget request
+                if self.token_budget:
+                    if request_data.get("allocate", False):
+                        allocation = await self.token_budget.allocate(
+                            task=request_data.get("task", {}),
+                            context_size=request_data.get("context_size", 0),
+                            model_name=request_data.get("model_name", "default")
+                        )
+                        
+                        response["content"] = {
+                            "allocation": allocation
+                        }
+                    else:
+                        result = await self.token_budget.optimize_context(
+                            context=context or {},
+                            max_tokens=request_data.get("max_tokens", 1000)
+                        )
+                        
+                        response["content"] = {
+                            "optimized_context": result.get("context"),
+                            "tokens": {
+                                "original": result.get("original_tokens", 0),
+                                "optimized": result.get("optimized_tokens", 0)
+                            }
+                        }
+                        
+                        # Update context with optimized context
+                        response["context"] = result.get("context", {})
+                else:
+                    response["content"] = {"error": "Token budget is not enabled"}
+                    
+            else:
+                # Unknown request type
+                response["content"] = {
+                    "error": f"Unknown request type: {request_type}"
+                }
+                
+            # Add metadata
+            response["metadata"] = {
+                "timestamp": time.time(),
+                "request_type": request_type,
+                "component": "apollo.mcp"
+            }
+                
+            return response
+        except Exception as e:
+            logger.error(f"Error processing MCP request: {e}")
+            return {
+                "content": {"error": f"Error processing MCP request: {e}"},
+                "context": context or {}
+            }

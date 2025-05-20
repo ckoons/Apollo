@@ -35,6 +35,7 @@ from apollo.core.interfaces.rhetor import RhetorInterface
 
 # Import API routes
 from apollo.api.routes import api_router, ws_router, metrics_router
+from apollo.api.endpoints.mcp import mcp_router
 
 # Configure logging
 logging.basicConfig(
@@ -250,6 +251,7 @@ async def shutdown_event():
 app.include_router(api_router)
 app.include_router(ws_router)
 app.include_router(metrics_router)
+app.include_router(mcp_router)
 
 # Main entry point
 if __name__ == "__main__":
