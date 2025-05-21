@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import time
 import uuid
 from typing import Dict, List, Any, Optional, Union
@@ -19,6 +20,16 @@ from fastapi import FastAPI, APIRouter, WebSocket, WebSocketDisconnect, Depends,
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+# Initialize Tekton environment before other imports
+try:
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "shared", "utils"))
+    from tekton_startup import tekton_component_startup
+    # Load environment variables from Tekton's three-tier system
+    tekton_component_startup("apollo")
+except ImportError as e:
+    print(f"[APOLLO] Could not load Tekton environment manager: {e}")
+    print(f"[APOLLO] Continuing with system environment variables")
 
 # Import utilities
 from apollo.utils.port_config import get_apollo_port
