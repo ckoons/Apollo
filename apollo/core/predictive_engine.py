@@ -14,8 +14,6 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Union, Callable, Tuple
 import uuid
-import numpy as np
-from scipy import stats
 from collections import deque
 
 from apollo.models.context import (
@@ -29,6 +27,60 @@ from apollo.core.context_observer import ContextObserver
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+
+def linear_regression(x_values: List[float], y_values: List[float]) -> Tuple[float, float, float, float, float]:
+    """
+    Pure Python implementation of linear regression.
+    
+    Args:
+        x_values: List of x coordinates
+        y_values: List of y coordinates
+        
+    Returns:
+        Tuple of (slope, intercept, r_value, p_value, std_err)
+        Note: p_value and std_err are simplified approximations
+    """
+    if len(x_values) != len(y_values) or len(x_values) < 2:
+        return 0.0, 0.0, 0.0, 1.0, 0.0
+    
+    n = len(x_values)
+    
+    # Calculate means
+    x_mean = sum(x_values) / n
+    y_mean = sum(y_values) / n
+    
+    # Calculate sums needed for regression
+    sum_xy = sum((x - x_mean) * (y - y_mean) for x, y in zip(x_values, y_values))
+    sum_xx = sum((x - x_mean) ** 2 for x in x_values)
+    sum_yy = sum((y - y_mean) ** 2 for y in y_values)
+    
+    # Avoid division by zero
+    if sum_xx == 0:
+        return 0.0, y_mean, 0.0, 1.0, 0.0
+    
+    # Calculate slope and intercept
+    slope = sum_xy / sum_xx
+    intercept = y_mean - slope * x_mean
+    
+    # Calculate correlation coefficient (r_value)
+    if sum_yy == 0:
+        r_value = 1.0 if slope == 0 else 0.0
+    else:
+        r_value = sum_xy / (sum_xx * sum_yy) ** 0.5
+    
+    # Simplified p_value approximation (for small samples, assume high confidence)
+    # In real stats, this would require t-distribution calculations
+    p_value = 0.05 if abs(r_value) > 0.5 else 0.5
+    
+    # Simplified standard error approximation
+    if n > 2:
+        residual_sum_squares = sum_yy - (sum_xy ** 2 / sum_xx)
+        std_err = (residual_sum_squares / ((n - 2) * sum_xx)) ** 0.5
+    else:
+        std_err = 0.0
+        
+    return slope, intercept, r_value, p_value, std_err
 
 
 class PredictionRule:
@@ -101,7 +153,7 @@ class TokenUtilizationRule(PredictionRule):
         
         # Simple linear regression
         if len(timestamps) >= 2:
-            slope, intercept, r_value, p_value, std_err = stats.linregress(
+            slope, intercept, r_value, p_value, std_err = linear_regression(
                 timestamps, utilization_rates
             )
             
@@ -219,7 +271,7 @@ class RepetitionDetectionRule(PredictionRule):
         # Check if repetition is increasing
         if repetition_scores[-1] > 0.1 and repetition_scores[-1] > repetition_scores[0]:
             # Simple linear regression
-            slope, intercept, r_value, p_value, std_err = stats.linregress(
+            slope, intercept, r_value, p_value, std_err = linear_regression(
                 timestamps, repetition_scores
             )
             
