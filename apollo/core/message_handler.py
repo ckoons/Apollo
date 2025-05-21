@@ -227,7 +227,7 @@ class HermesClient:
             url = f"{self.base_url}/api/messages"
             response = await self.client.post(
                 url, 
-                json=message.dict(),
+                json=message.model_dump(),
                 headers={"Content-Type": "application/json"}
             )
             
@@ -256,7 +256,7 @@ class HermesClient:
             url = f"{self.base_url}/api/messages/batch"
             response = await self.client.post(
                 url, 
-                json=batch.dict(),
+                json=batch.model_dump(),
                 headers={"Content-Type": "application/json"}
             )
             
@@ -285,7 +285,7 @@ class HermesClient:
             url = f"{self.base_url}/api/subscriptions"
             response = await self.client.post(
                 url, 
-                json=subscription.dict(),
+                json=subscription.model_dump(),
                 headers={"Content-Type": "application/json"}
             )
             
@@ -553,7 +553,7 @@ class MessageHandler:
                     
                     # Handle message according to protocols
                     result = await self.protocol_enforcer.handle_message(
-                        message.dict(), context
+                        message.model_dump(), context
                     )
                     
                     # Skip if message was blocked
@@ -731,7 +731,7 @@ class MessageHandler:
             
             # Convert to dict
             records_data = {
-                key: record.dict()
+                key: record.model_dump()
                 for key, record in self.delivery_records.items()
             }
             

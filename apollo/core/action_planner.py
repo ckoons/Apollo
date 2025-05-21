@@ -823,7 +823,7 @@ class ActionPlanner:
                 return
                 
             # Prepare data for saving
-            action_data = [action.dict() for action in self.applied_actions[context_id]]
+            action_data = [action.model_dump() for action in self.applied_actions[context_id]]
             
             # Create filename
             safe_id = context_id.replace("/", "_").replace(":", "_")

@@ -146,7 +146,7 @@ async def get_capabilities(
             "code"
         ],
         "mcp_version": "fastmcp",
-        "detailed_capabilities": [cap.dict() for cap in capabilities_list]
+        "detailed_capabilities": [cap.model_dump() for cap in capabilities_list]
     }
 
 @mcp_router.get("/tools")
@@ -164,7 +164,7 @@ async def get_tools(
         "version": "mcp/2.0",
         "component": "apollo",
         "tool_count": len(tools_list),
-        "tools": [tool.dict() for tool in tools_list]
+        "tools": [tool.model_dump() for tool in tools_list]
     }
 
 @mcp_router.get("/health")

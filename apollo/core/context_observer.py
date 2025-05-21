@@ -315,7 +315,7 @@ class ContextObserver:
                 return
             
             # Prepare data for saving
-            history_data = [record.dict() for record in self.context_history[context_id]]
+            history_data = [record.model_dump() for record in self.context_history[context_id]]
             
             # Create filename
             safe_id = context_id.replace("/", "_").replace(":", "_")

@@ -106,7 +106,7 @@ async def get_all_contexts(
                 )
         
         # Convert to dict for response
-        context_data = [context.dict() for context in contexts]
+        context_data = [context.model_dump() for context in contexts]
         
         return APIResponse(
             status=ResponseStatus.SUCCESS,
@@ -148,22 +148,22 @@ async def get_context(
             )
         
         # Convert to dict
-        context_data = context.dict()
+        context_data = context.model_dump()
         
         # Include history if requested
         if include_history:
             history = apollo_manager.get_context_history(context_id, limit=history_limit)
-            context_data["history"] = [h.dict() for h in history]
+            context_data["history"] = [h.model_dump() for h in history]
         
         # Include prediction if available
         prediction = apollo_manager.get_prediction(context_id)
         if prediction:
-            context_data["prediction"] = prediction.dict()
+            context_data["prediction"] = prediction.model_dump()
             
         # Include actions if available
         actions = apollo_manager.get_actions(context_id)
         if actions:
-            context_data["actions"] = [a.dict() for a in actions]
+            context_data["actions"] = [a.model_dump() for a in actions]
         
         return APIResponse(
             status=ResponseStatus.SUCCESS,
@@ -247,7 +247,7 @@ async def get_all_predictions(
             predictions = list(apollo_manager.get_all_predictions().values())
         
         # Convert to dict for response
-        prediction_data = [prediction.dict() for prediction in predictions]
+        prediction_data = [prediction.model_dump() for prediction in predictions]
         
         return APIResponse(
             status=ResponseStatus.SUCCESS,
@@ -286,7 +286,7 @@ async def get_prediction(
             )
         
         # Convert to dict
-        prediction_data = prediction.dict()
+        prediction_data = prediction.model_dump()
         
         return APIResponse(
             status=ResponseStatus.SUCCESS,
@@ -349,7 +349,7 @@ async def get_all_actions(
                 actions.extend(context_actions)
         
         # Convert to dict for response
-        action_data = [action.dict() for action in actions]
+        action_data = [action.model_dump() for action in actions]
         
         return APIResponse(
             status=ResponseStatus.SUCCESS,
@@ -393,7 +393,7 @@ async def get_actions_for_context(
             actions = apollo_manager.get_actions(context_id)
         
         # Convert to dict for response
-        action_data = [action.dict() for action in actions]
+        action_data = [action.model_dump() for action in actions]
         
         return APIResponse(
             status=ResponseStatus.SUCCESS,
@@ -475,7 +475,7 @@ async def allocate_budget(
             context_id=request.context_id,
             allocated_tokens=budget.allocated_tokens,
             expiration=budget.expiration,
-            policy=budget.policy.dict() if hasattr(budget.policy, "dict") else budget.policy
+            policy=budget.policy.model_dump() if hasattr(budget.policy, "dict") else budget.policy
         )
         
         return APIResponse(
@@ -546,7 +546,7 @@ async def get_all_protocols(
                 )
         
         # Convert to dict for response
-        protocol_data = [protocol.dict() for protocol in protocols]
+        protocol_data = [protocol.model_dump() for protocol in protocols]
         
         return APIResponse(
             status=ResponseStatus.SUCCESS,
@@ -596,9 +596,9 @@ async def get_protocol(
         stats = apollo_manager.protocol_enforcer.get_protocol_stats(protocol_id)
         
         # Combine data
-        protocol_data = protocol.dict()
+        protocol_data = protocol.model_dump()
         if stats:
-            protocol_data["stats"] = stats.dict()
+            protocol_data["stats"] = stats.model_dump()
         
         return APIResponse(
             status=ResponseStatus.SUCCESS,
@@ -647,7 +647,7 @@ async def create_protocol(
         return APIResponse(
             status=ResponseStatus.SUCCESS,
             message=f"Protocol {protocol.protocol_id} created",
-            data=protocol.dict()
+            data=protocol.model_dump()
         )
         
     except Exception as e:
@@ -700,7 +700,7 @@ async def update_protocol(
         return APIResponse(
             status=ResponseStatus.SUCCESS,
             message=f"Protocol {protocol_id} updated",
-            data=protocol.dict()
+            data=protocol.model_dump()
         )
         
     except Exception as e:
@@ -799,7 +799,7 @@ async def get_protocol_violations(
         )
         
         # Convert to dict for response
-        violation_data = [violation.dict() for violation in violations]
+        violation_data = [violation.model_dump() for violation in violations]
         
         return APIResponse(
             status=ResponseStatus.SUCCESS,

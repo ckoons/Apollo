@@ -27,15 +27,16 @@ from apollo.core.message_handler import MessageHandler
 from apollo.core.protocol_enforcer import ProtocolEnforcer
 from apollo.core.token_budget import TokenBudgetManager
 
+# Configure logging first
+logger = logging.getLogger(__name__)
+
 # Import FastMCP integration
 try:
     # Import FastMCP functionality
     from tekton.mcp.fastmcp import (
         MCPClient,
         adapt_tool,
-        adapt_processor,
-        MCPRouter,
-        MCPProcessor
+        adapt_processor
     )
     from tekton.mcp.fastmcp.schema import (
         MCPRequest, 
@@ -57,12 +58,9 @@ try:
         get_tools
     )
     fastmcp_available = True
-except ImportError:
+except ImportError as e:
     fastmcp_available = False
-    logger.warning("FastMCP integration not available, some MCP functionality will be limited")
-
-# Configure logging
-logger = logging.getLogger(__name__)
+    logger.warning(f"FastMCP integration not available: {e}. Some MCP functionality will be limited")
 
 
 class ApolloManager:
@@ -559,10 +557,10 @@ class ApolloManager:
         return {
             "timestamp": datetime.now(),
             "context_id": context_id,
-            "state": state.dict() if state else None,
-            "history": [h.dict() for h in history],
-            "prediction": prediction.dict() if prediction else None,
-            "actions": [a.dict() for a in actions],
+            "state": state.model_dump() if state else None,
+            "history": [h.model_dump() for h in history],
+            "prediction": prediction.model_dump() if prediction else None,
+            "actions": [a.model_dump() for a in actions],
             "health_trend": health_trend,
             "summary": {
                 "health": str(state.health),

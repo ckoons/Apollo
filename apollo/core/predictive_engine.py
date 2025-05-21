@@ -169,7 +169,7 @@ class TokenUtilizationRule(PredictionRule):
             
             # Create predicted metrics based on current with adjusted utilization
             predicted_metrics = ContextMetrics(
-                **current_state.metrics.dict()
+                **current_state.metrics.model_dump()
             )
             predicted_metrics.token_utilization = predicted_utilization
             predicted_metrics.total_tokens = int(predicted_metrics.max_tokens * predicted_utilization)
@@ -291,7 +291,7 @@ class RepetitionDetectionRule(PredictionRule):
                 
                 # Create predicted metrics based on current with adjusted repetition
                 predicted_metrics = ContextMetrics(
-                    **current_state.metrics.dict()
+                    **current_state.metrics.model_dump()
                 )
                 predicted_metrics.repetition_score = predicted_repetition
                 predicted_metrics.timestamp = current_state.metrics.timestamp + timedelta(seconds=horizon_seconds)
@@ -410,7 +410,7 @@ class LatencyTrendRule(PredictionRule):
         
         # Create predicted metrics
         predicted_metrics = ContextMetrics(
-            **current_state.metrics.dict()
+            **current_state.metrics.model_dump()
         )
         predicted_metrics.latency = predicted_latency
         predicted_metrics.output_token_rate = predicted_token_rate
@@ -497,7 +497,7 @@ class HeuristicRule(PredictionRule):
         
         # Create predicted metrics as a copy of current
         predicted_metrics = ContextMetrics(
-            **current_state.metrics.dict()
+            **current_state.metrics.model_dump()
         )
         predicted_metrics.timestamp = current_state.metrics.timestamp + timedelta(seconds=horizon_seconds)
         

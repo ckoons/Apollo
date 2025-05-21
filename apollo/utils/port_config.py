@@ -125,3 +125,15 @@ def get_ws_url(component_id, path=""):
     """
     ws_path = f"/ws{path}" if path else "/ws"
     return get_component_url(component_id, protocol="ws", path=ws_path)
+
+def get_hermes_url(path=""):
+    """
+    Get the URL for the Hermes component.
+    
+    Args:
+        path (str): The path part of the URL
+        
+    Returns:
+        str: The full URL for the Hermes endpoint
+    """
+    return get_component_url("hermes", path=path)

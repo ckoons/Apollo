@@ -567,7 +567,7 @@ class TokenBudgetManager:
             policies_data = []
             
             for policy in self.policies.values():
-                policy_dict = policy.dict()
+                policy_dict = policy.model_dump()
                 
                 # Convert datetimes to strings
                 policy_dict["start_date"] = policy_dict["start_date"].isoformat()
@@ -611,7 +611,7 @@ class TokenBudgetManager:
             
             records_data = []
             for record in recent_records:
-                record_dict = record.dict()
+                record_dict = record.model_dump()
                 record_dict["timestamp"] = record_dict["timestamp"].isoformat()
                 records_data.append(record_dict)
                 

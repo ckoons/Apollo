@@ -7,7 +7,7 @@ This module defines the data models used for token budget management.
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Union
 from enum import Enum
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 import uuid
 
 
@@ -78,12 +78,13 @@ class BudgetAllocation(BaseModel):
     is_active: bool = True
     metadata: Dict[str, Any] = Field(default_factory=dict)
     
-    @validator('expiration_time', pre=True, always=True)
-    def set_expiration_time(cls, v, values):
+    @field_validator('expiration_time', mode='before')
+    @classmethod
+    def set_expiration_time(cls, v, info):
         """Set default expiration time if not provided."""
-        if v is None and 'creation_time' in values:
+        if v is None and 'creation_time' in info.data:
             # Default expiration: 24 hours after creation
-            return values['creation_time'] + timedelta(hours=24)
+            return info.data['creation_time'] + timedelta(hours=24)
         return v
     
     @property

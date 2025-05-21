@@ -432,7 +432,7 @@ class ProtocolEnforcer:
                     "payload": "object"
                 },
                 max_size_bytes=1024 * 1024  # 1MB
-            ).dict()
+            ).model_dump()
         )
         self.protocols[standard_message.protocol_id] = standard_message
         
@@ -455,7 +455,7 @@ class ProtocolEnforcer:
                 allowed_methods=["GET", "POST", "PUT", "DELETE"],
                 rate_limit=60,  # 60 requests per minute
                 required_auth=False
-            ).dict()
+            ).model_dump()
         )
         self.protocols[standard_request.protocol_id] = standard_request
         
@@ -477,7 +477,7 @@ class ProtocolEnforcer:
                 },
                 required_fields=["success", "data"],
                 max_response_time_ms=5000  # 5 seconds
-            ).dict()
+            ).model_dump()
         )
         self.protocols[standard_response.protocol_id] = standard_response
         
@@ -495,7 +495,7 @@ class ProtocolEnforcer:
             rules=EventSequenceRule(
                 required_correlation_id=True,
                 max_interval_ms=60000  # 1 minute
-            ).dict()
+            ).model_dump()
         )
         self.protocols[standard_event_sequence.protocol_id] = standard_event_sequence
         
@@ -623,7 +623,7 @@ class ProtocolEnforcer:
             
             # Save to file
             with open(filename, "w") as f:
-                json.dump(protocol.dict(), f, indent=2, default=str)
+                json.dump(protocol.model_dump(), f, indent=2, default=str)
                 
         except Exception as e:
             logger.error(f"Error saving protocol to file: {e}")
@@ -1111,7 +1111,7 @@ class ProtocolEnforcer:
             filename = os.path.join(self.data_dir, f"violations_{int(time.time())}.json")
             
             # Convert to dict
-            violations_data = [v.dict() for v in self.violation_history]
+            violations_data = [v.model_dump() for v in self.violation_history]
             
             # Save to file
             with open(filename, "w") as f:
@@ -1153,7 +1153,7 @@ class ProtocolEnforcer:
             
             # Convert to dict
             stats_data = {
-                protocol_id: stats.dict()
+                protocol_id: stats.model_dump()
                 for protocol_id, stats in self.protocol_stats.items()
             }
             
