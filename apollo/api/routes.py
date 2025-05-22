@@ -61,18 +61,8 @@ ws_router = APIRouter()
 metrics_router = APIRouter(prefix="/metrics")
 
 
-# API dependency for Apollo manager
-async def get_apollo_manager():
-    """Get the Apollo manager from the app state."""
-    # This will be initialized in a startup event
-    from starlette.requests import Request
-    request = Request.get_current()
-    
-    if not hasattr(request.app.state, "apollo_manager"):
-        logger.error("Apollo manager not initialized")
-        raise HTTPException(status_code=500, message="Apollo manager not initialized")
-        
-    return request.app.state.apollo_manager
+# Import the Apollo manager dependency
+from apollo.api.dependencies import get_apollo_manager
 
 
 # Context Management Routes

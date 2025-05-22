@@ -67,7 +67,7 @@ class ProtocolDefinition(BaseModel):
     
     # Protocol-specific rules
     rules: Dict[str, Any] = Field(default_factory=dict)
-    schema: Optional[Dict[str, Any]] = None
+    protocol_schema: Optional[Dict[str, Any]] = Field(default=None, alias="schema")
     
     # Runtime configuration
     enabled: bool = True
