@@ -13,7 +13,7 @@ import aiohttp
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 
-from apollo.utils.port_config import get_component_port, get_api_url, get_ws_url
+from tekton.utils.port_config import get_component_port, get_component_url
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -43,8 +43,8 @@ class RhetorInterface:
             retry_delay: Delay between retries (seconds)
             timeout: Request timeout (seconds)
         """
-        self.base_url = base_url or get_api_url("rhetor")
-        self.ws_url = get_ws_url("rhetor")
+        self.base_url = base_url or get_component_url("rhetor")
+        self.ws_url = get_component_url("rhetor", protocol="ws")
         self.retry_count = retry_count
         self.retry_delay = retry_delay
         self.timeout = timeout

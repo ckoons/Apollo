@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 APOLLO_HOST="localhost"
-APOLLO_PORT="8000"
+APOLLO_PORT="8012"
 BASE_URL="http://${APOLLO_HOST}:${APOLLO_PORT}"
 MCP_BASE_URL="${BASE_URL}/api/mcp/v2"
 

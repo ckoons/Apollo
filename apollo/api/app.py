@@ -32,7 +32,7 @@ except ImportError as e:
     print(f"[APOLLO] Continuing with system environment variables")
 
 # Import utilities
-from apollo.utils.port_config import get_apollo_port
+from tekton.utils.port_config import get_apollo_port
 
 # Import core modules
 from apollo.core.apollo_manager import ApolloManager

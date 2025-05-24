@@ -34,7 +34,7 @@ from apollo.models.message import (
     MessageDeliveryRecord
 )
 from apollo.core.protocol_enforcer import ProtocolEnforcer
-from apollo.utils.port_config import get_hermes_url
+from tekton.utils.port_config import get_hermes_url
 
 # Configure logging
 logger = logging.getLogger(__name__)

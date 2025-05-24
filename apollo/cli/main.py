@@ -25,7 +25,7 @@ from rich.tree import Tree
 from rich.syntax import Syntax
 from rich.pretty import Pretty
 
-from apollo.utils.port_config import get_apollo_port
+from tekton.utils.port_config import get_apollo_port
 from apollo.models.context import ContextHealth
 
 # Configure logging
