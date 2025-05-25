@@ -127,7 +127,7 @@ class ApolloManager:
         
         # Initialize additional components for MCP
         self.message_handler = MessageHandler(
-            rhetor_interface=self.rhetor_interface,
+            component_name="apollo",
             data_dir=message_data_dir
         ) if enable_message_handler else None
         

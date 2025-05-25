@@ -34,6 +34,10 @@ except ImportError as e:
 # Import utilities
 from tekton.utils.port_config import get_apollo_port
 
+# Import Hermes registration utility
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "shared", "utils"))
+from hermes_registration import HermesRegistration, heartbeat_loop
+
 # Import core modules
 from apollo.core.apollo_manager import ApolloManager
 from apollo.core.context_observer import ContextObserver
@@ -142,6 +146,31 @@ async def startup_event():
     try:
         logger.info("Initializing Apollo components...")
         
+        # Register with Hermes
+        port = get_apollo_port()
+        hermes_registration = HermesRegistration()
+        await hermes_registration.register_component(
+            component_name="apollo",
+            port=port,
+            version="0.1.0",
+            capabilities=[
+                "llm_orchestration",
+                "context_observation",
+                "token_budget_management",
+                "predictive_planning",
+                "protocol_enforcement"
+            ],
+            metadata={
+                "description": "Local attention and prediction system",
+                "category": "ai"
+            }
+        )
+        app.state.hermes_registration = hermes_registration
+        
+        # Start heartbeat task
+        if hermes_registration.is_registered:
+            asyncio.create_task(heartbeat_loop(hermes_registration, "apollo"))
+        
         # Create data directories
         data_dir = os.environ.get("APOLLO_DATA_DIR", os.path.expanduser("~/.tekton/apollo"))
         os.makedirs(data_dir, exist_ok=True)
@@ -232,6 +261,10 @@ async def shutdown_event():
     """Shutdown Apollo components gracefully."""
     try:
         logger.info("Shutting down Apollo components...")
+        
+        # Deregister from Hermes
+        if hasattr(app.state, "hermes_registration") and app.state.hermes_registration:
+            await app.state.hermes_registration.deregister("apollo")
         
         # Get Apollo manager from app state
         if hasattr(app.state, "apollo_manager") and app.state.apollo_manager:
