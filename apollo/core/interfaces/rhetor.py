@@ -13,7 +13,14 @@ import aiohttp
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 
-from tekton.utils.port_config import get_component_port, get_component_url
+# from tekton.utils.port_config import get_component_port, get_component_url
+def get_component_port(component_name: str) -> int:
+    port_map = {'rhetor': 8003, 'hermes': 8001, 'apollo': 8012}
+    return port_map.get(component_name, 8000)
+
+def get_component_url(component_name: str) -> str:
+    port = get_component_port(component_name)
+    return f"http://localhost:{port}"
 
 # Configure logging
 logger = logging.getLogger(__name__)

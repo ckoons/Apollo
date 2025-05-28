@@ -32,7 +32,7 @@ except ImportError as e:
     print(f"[APOLLO] Continuing with system environment variables")
 
 # Import utilities
-from tekton.utils.port_config import get_apollo_port
+# from tekton.utils.port_config import get_apollo_port
 
 # Import Hermes registration utility
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "shared", "utils"))
@@ -79,7 +79,7 @@ app.add_middleware(
 @app.get("/")
 async def root():
     """Root endpoint for the Apollo API."""
-    port = get_apollo_port()
+    port = 8012
     
     return {
         "name": "Apollo Executive Coordinator",
@@ -130,7 +130,7 @@ async def health_check():
         "status": health_status,
         "component": "apollo",
         "version": "0.1.0",
-        "port": get_apollo_port(),
+        "port": 8012,
         "message": message
     }
     
@@ -147,7 +147,7 @@ async def startup_event():
         logger.info("Initializing Apollo components...")
         
         # Register with Hermes
-        port = get_apollo_port()
+        port = 8012
         hermes_registration = HermesRegistration()
         await hermes_registration.register_component(
             component_name="apollo",
@@ -302,6 +302,6 @@ if __name__ == "__main__":
     import uvicorn
     
     # Get port from environment variable or use default
-    port = get_apollo_port()
+    port = 8012
     
     uvicorn.run(app, host="0.0.0.0", port=port)

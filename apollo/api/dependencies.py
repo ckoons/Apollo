@@ -8,7 +8,19 @@ to access shared resources like the ApolloManager.
 from typing import Optional
 from fastapi import Depends, HTTPException, Request, status
 
-from shared.debug.debug_utils import debug_log, log_function
+# from shared.debug.debug_utils import debug_log, log_function
+# Fallback debug utilities
+class DebugLog:
+    def __getattr__(self, name):
+        def dummy_log(*args, **kwargs):
+            pass
+        return dummy_log
+debug_log = DebugLog()
+
+def log_function(*args, **kwargs):
+    def decorator(func):
+        return func
+    return decorator
 from apollo.core.apollo_manager import ApolloManager
 
 @log_function()
