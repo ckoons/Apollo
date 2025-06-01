@@ -21,10 +21,14 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+# Add Tekton root to path if not already present
+tekton_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+if tekton_root not in sys.path:
+    sys.path.insert(0, tekton_root)
+
 # Initialize Tekton environment before other imports
 try:
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "shared", "utils"))
-    from tekton_startup import tekton_component_startup
+    from shared.utils.tekton_startup import tekton_component_startup
     # Load environment variables from Tekton's three-tier system
     tekton_component_startup("apollo")
 except ImportError as e:
@@ -34,9 +38,8 @@ except ImportError as e:
 # Import utilities
 # from tekton.utils.port_config import get_apollo_port
 
-# Import Hermes registration utility
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "shared", "utils"))
-from hermes_registration import HermesRegistration, heartbeat_loop
+# Import Hermes registration utility with correct path
+from shared.utils.hermes_registration import HermesRegistration, heartbeat_loop
 
 # Import core modules
 from apollo.core.apollo_manager import ApolloManager
