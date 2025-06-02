@@ -14,6 +14,7 @@ import sys
 import time
 import uuid
 from typing import Dict, List, Any, Optional, Union
+from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI, APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query
@@ -35,11 +36,13 @@ except ImportError as e:
     print(f"[APOLLO] Could not load Tekton environment manager: {e}")
     print(f"[APOLLO] Continuing with system environment variables")
 
-# Import utilities
-# from tekton.utils.port_config import get_apollo_port
-
-# Import Hermes registration utility with correct path
+# Import shared utilities
 from shared.utils.hermes_registration import HermesRegistration, heartbeat_loop
+from shared.utils.logging_setup import setup_component_logging
+from shared.utils.env_config import get_component_config
+from shared.utils.errors import StartupError
+from shared.utils.startup import component_startup, StartupMetrics
+from shared.utils.shutdown import GracefulShutdown
 
 # Import core modules
 from apollo.core.apollo_manager import ApolloManager
@@ -55,18 +58,212 @@ from apollo.core.interfaces.rhetor import RhetorInterface
 from apollo.api.routes import api_router, ws_router, metrics_router
 from apollo.api.endpoints.mcp import mcp_router
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger("apollo.api")
+# Use shared logger
+logger = setup_component_logging("apollo")
+
+# Global state for Hermes registration
+hermes_registration = None
+heartbeat_task = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for Apollo"""
+    global hermes_registration, heartbeat_task
+    
+    # Startup
+    logger.info("Starting Apollo Executive Coordinator API")
+    
+    async def apollo_startup():
+        """Apollo-specific startup logic"""
+        try:
+            # Get configuration
+            config = get_component_config()
+            port = config.apollo.port if hasattr(config, 'apollo') else int(os.environ.get("APOLLO_PORT", 8012))
+            
+            # Register with Hermes
+            global hermes_registration, heartbeat_task
+            hermes_registration = HermesRegistration()
+            
+            logger.info(f"Attempting to register Apollo with Hermes on port {port}")
+            is_registered = await hermes_registration.register_component(
+                component_name="apollo",
+                port=port,
+                version="0.1.0",
+                capabilities=[
+                    "llm_orchestration",
+                    "context_observation",
+                    "token_budget_management",
+                    "predictive_planning",
+                    "protocol_enforcement"
+                ],
+                metadata={
+                    "description": "Local attention and prediction system",
+                    "category": "ai"
+                }
+            )
+            
+            if is_registered:
+                logger.info("Successfully registered with Hermes")
+                # Start heartbeat task
+                heartbeat_task = asyncio.create_task(
+                    heartbeat_loop(hermes_registration, "apollo", interval=30)
+                )
+                logger.info("Started Hermes heartbeat task")
+            else:
+                logger.warning("Failed to register with Hermes - continuing without registration")
+            
+            # Create data directories
+            data_dir = os.environ.get("APOLLO_DATA_DIR", os.path.expanduser("~/.tekton/apollo"))
+            os.makedirs(data_dir, exist_ok=True)
+            
+            # Sub-directories for component data
+            context_data_dir = os.path.join(data_dir, "context_data")
+            budget_data_dir = os.path.join(data_dir, "budget_data")
+            prediction_data_dir = os.path.join(data_dir, "prediction_data")
+            action_data_dir = os.path.join(data_dir, "action_data")
+            protocol_data_dir = os.path.join(data_dir, "protocol_data")
+            message_data_dir = os.path.join(data_dir, "message_data")
+            
+            # Create Rhetor interface
+            rhetor_interface = RhetorInterface()
+            
+            # Create message handler with Hermes client
+            hermes_client = HermesClient()
+            message_handler = MessageHandler(
+                component_name="apollo",
+                hermes_client=hermes_client,
+                data_dir=message_data_dir
+            )
+            
+            # Create context observer
+            context_observer = ContextObserver(
+                rhetor_interface=rhetor_interface,
+                data_dir=context_data_dir
+            )
+            
+            # Create token budget manager
+            token_budget_manager = TokenBudgetManager(
+                data_dir=budget_data_dir
+            )
+            
+            # Create protocol enforcer
+            protocol_enforcer = ProtocolEnforcer(
+                data_dir=protocol_data_dir,
+                load_defaults=True
+            )
+            
+            # Create predictive engine
+            predictive_engine = PredictiveEngine(
+                context_observer=context_observer,
+                data_dir=prediction_data_dir
+            )
+            
+            # Create action planner
+            action_planner = ActionPlanner(
+                context_observer=context_observer,
+                predictive_engine=predictive_engine,
+                data_dir=action_data_dir
+            )
+            
+            # Create Apollo manager
+            apollo_manager = ApolloManager(
+                rhetor_interface=rhetor_interface,
+                data_dir=data_dir
+            )
+            
+            # Register components with Apollo manager
+            apollo_manager.context_observer = context_observer
+            apollo_manager.token_budget_manager = token_budget_manager
+            apollo_manager.protocol_enforcer = protocol_enforcer
+            apollo_manager.predictive_engine = predictive_engine
+            apollo_manager.action_planner = action_planner
+            apollo_manager.message_handler = message_handler
+            
+            # Store in app state
+            app.state.apollo_manager = apollo_manager
+            app.state.hermes_registration = hermes_registration
+            
+            # Start components
+            logger.info("Starting Apollo components...")
+            await message_handler.start()
+            await context_observer.start()
+            await predictive_engine.start()
+            await action_planner.start()
+            # Note: apollo_manager.start() tries to start protocol_enforcer and token_budget_manager
+            # which don't have start methods. Skip for now.
+            apollo_manager.is_running = True
+            
+            logger.info("Apollo initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Error during Apollo startup: {e}", exc_info=True)
+            raise StartupError(str(e), "apollo", "STARTUP_FAILED")
+    
+    # Execute startup with metrics
+    try:
+        metrics = await component_startup("apollo", apollo_startup, timeout=30)
+        logger.info(f"Apollo started successfully in {metrics.total_time:.2f}s")
+    except Exception as e:
+        logger.error(f"Failed to start Apollo: {e}")
+        raise
+    
+    # Create shutdown handler
+    shutdown = GracefulShutdown("apollo")
+    
+    # Register cleanup tasks
+    async def cleanup_hermes():
+        """Cleanup Hermes registration"""
+        if heartbeat_task:
+            heartbeat_task.cancel()
+            try:
+                await heartbeat_task
+            except asyncio.CancelledError:
+                pass
+        
+        if hermes_registration and hermes_registration.is_registered:
+            await hermes_registration.deregister("apollo")
+            logger.info("Deregistered from Hermes")
+    
+    async def cleanup_components():
+        """Cleanup Apollo components"""
+        try:
+            if hasattr(app.state, "apollo_manager") and app.state.apollo_manager:
+                apollo_manager = app.state.apollo_manager
+                
+                # Stop components in reverse order
+                await apollo_manager.stop()
+                
+                if apollo_manager.action_planner:
+                    await apollo_manager.action_planner.stop()
+                if apollo_manager.predictive_engine:
+                    await apollo_manager.predictive_engine.stop()
+                if apollo_manager.context_observer:
+                    await apollo_manager.context_observer.stop()
+                if apollo_manager.message_handler:
+                    await apollo_manager.message_handler.stop()
+                
+                logger.info("Apollo components shut down successfully")
+        except Exception as e:
+            logger.warning(f"Error cleaning up Apollo components: {e}")
+    
+    shutdown.register_cleanup(cleanup_hermes)
+    shutdown.register_cleanup(cleanup_components)
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down Apollo Executive Coordinator API")
+    await shutdown.shutdown_sequence(timeout=10)
+    
+    # Socket release delay for macOS
+    await asyncio.sleep(0.5)
 
 # Create FastAPI application
 app = FastAPI(
     title="Apollo Executive Coordinator API",
     description="API for the Apollo executive coordinator for Tekton LLM operations",
     version="0.1.0",
+    lifespan=lifespan
 )
 
 # Add CORS middleware
@@ -143,155 +340,6 @@ async def health_check():
     )
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize Apollo components on startup."""
-    try:
-        logger.info("Initializing Apollo components...")
-        
-        # Register with Hermes
-        port = 8012
-        hermes_registration = HermesRegistration()
-        await hermes_registration.register_component(
-            component_name="apollo",
-            port=port,
-            version="0.1.0",
-            capabilities=[
-                "llm_orchestration",
-                "context_observation",
-                "token_budget_management",
-                "predictive_planning",
-                "protocol_enforcement"
-            ],
-            metadata={
-                "description": "Local attention and prediction system",
-                "category": "ai"
-            }
-        )
-        app.state.hermes_registration = hermes_registration
-        
-        # Start heartbeat task
-        if hermes_registration.is_registered:
-            asyncio.create_task(heartbeat_loop(hermes_registration, "apollo"))
-        
-        # Create data directories
-        data_dir = os.environ.get("APOLLO_DATA_DIR", os.path.expanduser("~/.tekton/apollo"))
-        os.makedirs(data_dir, exist_ok=True)
-        
-        # Sub-directories for component data
-        context_data_dir = os.path.join(data_dir, "context_data")
-        budget_data_dir = os.path.join(data_dir, "budget_data")
-        prediction_data_dir = os.path.join(data_dir, "prediction_data")
-        action_data_dir = os.path.join(data_dir, "action_data")
-        protocol_data_dir = os.path.join(data_dir, "protocol_data")
-        message_data_dir = os.path.join(data_dir, "message_data")
-        
-        # Create Rhetor interface
-        rhetor_interface = RhetorInterface()
-        
-        # Create message handler with Hermes client
-        hermes_client = HermesClient()
-        message_handler = MessageHandler(
-            component_name="apollo",
-            hermes_client=hermes_client,
-            data_dir=message_data_dir
-        )
-        
-        # Create context observer
-        context_observer = ContextObserver(
-            rhetor_interface=rhetor_interface,
-            data_dir=context_data_dir
-        )
-        
-        # Create token budget manager
-        token_budget_manager = TokenBudgetManager(
-            data_dir=budget_data_dir
-        )
-        
-        # Create protocol enforcer
-        protocol_enforcer = ProtocolEnforcer(
-            data_dir=protocol_data_dir,
-            load_defaults=True
-        )
-        
-        # Create predictive engine
-        predictive_engine = PredictiveEngine(
-            context_observer=context_observer,
-            data_dir=prediction_data_dir
-        )
-        
-        # Create action planner
-        action_planner = ActionPlanner(
-            context_observer=context_observer,
-            predictive_engine=predictive_engine,
-            data_dir=action_data_dir
-        )
-        
-        # Create Apollo manager
-        apollo_manager = ApolloManager(
-            rhetor_interface=rhetor_interface,
-            data_dir=data_dir
-        )
-        
-        # Register components with Apollo manager
-        apollo_manager.context_observer = context_observer
-        apollo_manager.token_budget_manager = token_budget_manager
-        apollo_manager.protocol_enforcer = protocol_enforcer
-        apollo_manager.predictive_engine = predictive_engine
-        apollo_manager.action_planner = action_planner
-        apollo_manager.message_handler = message_handler
-        
-        # Store in app state
-        app.state.apollo_manager = apollo_manager
-        
-        # Start components
-        logger.info("Starting Apollo components...")
-        await message_handler.start()
-        await context_observer.start()
-        await predictive_engine.start()
-        await action_planner.start()
-        await apollo_manager.start()
-        
-        logger.info("Apollo initialized successfully")
-        
-    except Exception as e:
-        logger.error(f"Error initializing Apollo: {e}")
-        # Don't re-raise the exception to allow the API to start even if initialization fails
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Shutdown Apollo components gracefully."""
-    try:
-        logger.info("Shutting down Apollo components...")
-        
-        # Deregister from Hermes
-        if hasattr(app.state, "hermes_registration") and app.state.hermes_registration:
-            await app.state.hermes_registration.deregister("apollo")
-        
-        # Get Apollo manager from app state
-        if hasattr(app.state, "apollo_manager") and app.state.apollo_manager:
-            apollo_manager = app.state.apollo_manager
-            
-            # Stop components in reverse order
-            await apollo_manager.stop()
-            
-            if apollo_manager.action_planner:
-                await apollo_manager.action_planner.stop()
-                
-            if apollo_manager.predictive_engine:
-                await apollo_manager.predictive_engine.stop()
-                
-            if apollo_manager.context_observer:
-                await apollo_manager.context_observer.stop()
-                
-            if apollo_manager.message_handler:
-                await apollo_manager.message_handler.stop()
-            
-        logger.info("Apollo shutdown complete")
-        
-    except Exception as e:
-        logger.error(f"Error shutting down Apollo: {e}")
 
 
 # Include routers in app
