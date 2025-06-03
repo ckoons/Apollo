@@ -8,7 +8,8 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Union, Set
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import Field
+from tekton.models import TektonBaseModel
 
 
 class ProtocolType(str, Enum):
@@ -47,7 +48,7 @@ class EnforcementMode(str, Enum):
     ADAPT = "adapt"  # Correct and adapt to violations where possible
 
 
-class ProtocolDefinition(BaseModel):
+class ProtocolDefinition(TektonBaseModel):
     """Definition of a protocol to be enforced."""
     protocol_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
@@ -74,7 +75,7 @@ class ProtocolDefinition(BaseModel):
     priority: int = 5  # 1-10, higher is more important
 
 
-class ProtocolViolation(BaseModel):
+class ProtocolViolation(TektonBaseModel):
     """Record of a protocol violation."""
     violation_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     protocol_id: str
@@ -89,7 +90,7 @@ class ProtocolViolation(BaseModel):
     corrective_action_taken: Optional[str] = None
 
 
-class ProtocolStats(BaseModel):
+class ProtocolStats(TektonBaseModel):
     """Statistics for protocol enforcement."""
     protocol_id: str
     total_evaluations: int = 0
@@ -102,7 +103,7 @@ class ProtocolStats(BaseModel):
     last_evaluation: Optional[datetime] = None
 
 
-class MessageFormatRule(BaseModel):
+class MessageFormatRule(TektonBaseModel):
     """Rules for message format protocols."""
     required_fields: List[str] = Field(default_factory=list)
     forbidden_fields: List[str] = Field(default_factory=list)
@@ -111,7 +112,7 @@ class MessageFormatRule(BaseModel):
     serialization_format: Optional[str] = None  # json, msgpack, etc.
 
 
-class RequestFlowRule(BaseModel):
+class RequestFlowRule(TektonBaseModel):
     """Rules for request flow protocols."""
     required_headers: Dict[str, str] = Field(default_factory=dict)
     allowed_methods: List[str] = Field(default_factory=list)
@@ -121,7 +122,7 @@ class RequestFlowRule(BaseModel):
     prerequisite_requests: List[str] = Field(default_factory=list)
 
 
-class ResponseFormatRule(BaseModel):
+class ResponseFormatRule(TektonBaseModel):
     """Rules for response format protocols."""
     status_codes: List[int] = Field(default_factory=list)
     required_headers: Dict[str, str] = Field(default_factory=dict)
@@ -129,7 +130,7 @@ class ResponseFormatRule(BaseModel):
     max_response_time_ms: Optional[int] = None
 
 
-class EventSequenceRule(BaseModel):
+class EventSequenceRule(TektonBaseModel):
     """Rules for event sequencing protocols."""
     sequence_order: List[str] = Field(default_factory=list)
     max_interval_ms: Optional[int] = None

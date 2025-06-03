@@ -8,7 +8,8 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Union
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import Field
+from tekton.models import TektonBaseModel
 
 
 class ContextHealth(str, Enum):
@@ -20,7 +21,7 @@ class ContextHealth(str, Enum):
     CRITICAL = "critical"
 
 
-class ContextMetrics(BaseModel):
+class ContextMetrics(TektonBaseModel):
     """Metrics for an LLM context."""
     # Basic token metrics
     input_tokens: int
@@ -45,7 +46,7 @@ class ContextMetrics(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
 
 
-class ContextState(BaseModel):
+class ContextState(TektonBaseModel):
     """State of an LLM context."""
     context_id: str
     component_id: str
@@ -60,7 +61,7 @@ class ContextState(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-class ContextHistoryRecord(BaseModel):
+class ContextHistoryRecord(TektonBaseModel):
     """Historical record of context metrics."""
     context_id: str
     metrics: ContextMetrics
@@ -69,7 +70,7 @@ class ContextHistoryRecord(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
 
 
-class ContextPrediction(BaseModel):
+class ContextPrediction(TektonBaseModel):
     """Prediction for future context state."""
     context_id: str
     predicted_metrics: ContextMetrics
@@ -81,7 +82,7 @@ class ContextPrediction(BaseModel):
     basis: str  # heuristic, statistical, hybrid
 
 
-class ContextAction(BaseModel):
+class ContextAction(TektonBaseModel):
     """Action to take on a context."""
     context_id: str
     action_id: str = Field(default_factory=lambda: str(uuid.uuid4()))

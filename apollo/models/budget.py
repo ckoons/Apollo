@@ -7,7 +7,8 @@ This module defines the data models used for token budget management.
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Union
 from enum import Enum
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
+from tekton.models import TektonBaseModel
 import uuid
 
 
@@ -44,7 +45,7 @@ class TaskPriority(int, Enum):
     CRITICAL = 10
 
 
-class BudgetPolicy(BaseModel):
+class BudgetPolicy(TektonBaseModel):
     """Policy for token budget enforcement."""
     policy_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     type: BudgetPolicyType
@@ -61,7 +62,7 @@ class BudgetPolicy(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-class BudgetAllocation(BaseModel):
+class BudgetAllocation(TektonBaseModel):
     """Token budget allocation for a specific LLM operation."""
     allocation_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     context_id: str
@@ -133,7 +134,7 @@ class BudgetAllocation(BaseModel):
         return tokens_to_record
 
 
-class BudgetUsageRecord(BaseModel):
+class BudgetUsageRecord(TektonBaseModel):
     """Record of token usage for a specific operation."""
     record_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     allocation_id: str
@@ -149,7 +150,7 @@ class BudgetUsageRecord(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-class BudgetSummary(BaseModel):
+class BudgetSummary(TektonBaseModel):
     """Summary of budget usage for a component or task type."""
     period: BudgetPeriod
     tier: BudgetTier

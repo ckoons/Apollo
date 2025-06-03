@@ -18,4 +18,4 @@ if [ -z "$APOLLO_PORT" ]; then
 fi
 
 # Start Apollo API server
-python -m apollo.api.app "$@"
+python -m apollo "$@"

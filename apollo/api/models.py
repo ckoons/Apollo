@@ -6,8 +6,9 @@ This module defines the Pydantic models used for the Apollo API.
 
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Union
-from pydantic import BaseModel, Field, validator
+from pydantic import Field, field_validator
 from enum import Enum
+from tekton.models import TektonBaseModel
 
 
 class ResponseStatus(str, Enum):
@@ -17,7 +18,7 @@ class ResponseStatus(str, Enum):
     WARNING = "warning"
 
 
-class APIResponse(BaseModel):
+class APIResponse(TektonBaseModel):
     """Base API response model."""
     status: ResponseStatus = ResponseStatus.SUCCESS
     message: Optional[str] = None
@@ -32,7 +33,7 @@ class MonitoringStatus(str, Enum):
     CRITICAL = "critical"
 
 
-class MonitoringMetrics(BaseModel):
+class MonitoringMetrics(TektonBaseModel):
     """Metrics for context monitoring."""
     status: MonitoringStatus
     token_usage: Dict[str, Any]
@@ -43,7 +44,7 @@ class MonitoringMetrics(BaseModel):
     last_updated: datetime
 
 
-class SessionInfo(BaseModel):
+class SessionInfo(TektonBaseModel):
     """LLM session information."""
     session_id: str
     component: str
@@ -54,7 +55,7 @@ class SessionInfo(BaseModel):
     last_action: Optional[Dict[str, Any]] = None
 
 
-class BudgetRequest(BaseModel):
+class BudgetRequest(TektonBaseModel):
     """Budget allocation request."""
     context_id: str
     task_type: str = "default"
@@ -65,7 +66,7 @@ class BudgetRequest(BaseModel):
     token_count: Optional[int] = None
 
 
-class BudgetResponse(BaseModel):
+class BudgetResponse(TektonBaseModel):
     """Budget allocation response."""
     context_id: str
     allocated_tokens: int
@@ -73,7 +74,7 @@ class BudgetResponse(BaseModel):
     policy: Dict[str, Any]
 
 
-class ProtocolRule(BaseModel):
+class ProtocolRule(TektonBaseModel):
     """Protocol rule definition."""
     rule_id: str
     name: str
@@ -84,7 +85,7 @@ class ProtocolRule(BaseModel):
     target_components: List[str]
 
 
-class DirectiveMessage(BaseModel):
+class DirectiveMessage(TektonBaseModel):
     """Directive message for components."""
     directive_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     directive_type: str
@@ -94,7 +95,7 @@ class DirectiveMessage(BaseModel):
     expiration: Optional[datetime] = None
 
 
-class ComponentMessage(BaseModel):
+class ComponentMessage(TektonBaseModel):
     """Message from a component to Apollo."""
     message_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     component: str
@@ -103,7 +104,7 @@ class ComponentMessage(BaseModel):
     requires_response: bool = False
 
 
-class PredictionRequest(BaseModel):
+class PredictionRequest(TektonBaseModel):
     """Request for context prediction."""
     context_id: str
     component: str

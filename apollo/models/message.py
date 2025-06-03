@@ -9,7 +9,8 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Union
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import Field
+from tekton.models import TektonBaseModel
 
 
 class MessageType(str, Enum):
@@ -64,7 +65,7 @@ class MessagePriority(int, Enum):
     CRITICAL = 10
 
 
-class TektonMessage(BaseModel):
+class TektonMessage(TektonBaseModel):
     """
     Base message model for Tekton component communication.
     
@@ -146,7 +147,7 @@ class QueryMessage(TektonMessage):
         super().__init__(**data)
 
 
-class MessageBatch(BaseModel):
+class MessageBatch(TektonBaseModel):
     """Batch of messages for efficient transmission."""
     batch_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     source: str
@@ -155,7 +156,7 @@ class MessageBatch(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-class MessageSubscription(BaseModel):
+class MessageSubscription(TektonBaseModel):
     """Subscription for receiving messages of specific types."""
     subscription_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     component: str
@@ -174,7 +175,7 @@ class MessageDeliveryStatus(str, Enum):
     EXPIRED = "expired"
 
 
-class MessageDeliveryRecord(BaseModel):
+class MessageDeliveryRecord(TektonBaseModel):
     """Record of message delivery attempt."""
     message_id: str
     subscription_id: str
