@@ -351,9 +351,16 @@ app.include_router(mcp_router)
 
 # Main entry point
 if __name__ == "__main__":
-    import uvicorn
+    from shared.utils.socket_server import run_with_socket_reuse
     
     # Get port from environment variable or use default
-    port = 8012
+    port = int(os.environ.get("APOLLO_PORT"))
     
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    run_with_socket_reuse(
+        "apollo.api.app:app",
+        host="0.0.0.0",
+        port=port,
+        timeout_graceful_shutdown=3,
+        server_header=False,
+        access_log=False
+    )
