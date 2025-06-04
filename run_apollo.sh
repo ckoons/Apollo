@@ -12,9 +12,11 @@ if [ -f .env ]; then
     set +a
 fi
 
-# Set APOLLO_PORT if not already set in environment
+# APOLLO_PORT must be set in environment - no hardcoded defaults per Single Port Architecture
 if [ -z "$APOLLO_PORT" ]; then
-    export APOLLO_PORT=8012  # Choose appropriate port according to port_assignments.md
+    echo "Error: APOLLO_PORT not set in environment"
+    echo "Please configure port in ~/.env.tekton or system environment"
+    exit 1
 fi
 
 # Start Apollo API server

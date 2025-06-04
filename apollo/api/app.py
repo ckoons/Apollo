@@ -43,6 +43,15 @@ from shared.utils.env_config import get_component_config
 from shared.utils.errors import StartupError
 from shared.utils.startup import component_startup, StartupMetrics
 from shared.utils.shutdown import GracefulShutdown
+from shared.utils.health_check import create_health_response
+from shared.api import (
+    create_standard_routers,
+    mount_standard_routers,
+    create_ready_endpoint,
+    create_discovery_endpoint,
+    get_openapi_configuration,
+    EndpointInfo
+)
 
 # Import core modules
 from apollo.core.apollo_manager import ApolloManager
@@ -61,14 +70,24 @@ from apollo.api.endpoints.mcp import mcp_router
 # Use shared logger
 logger = setup_component_logging("apollo")
 
+# Component configuration
+COMPONENT_NAME = "Apollo"
+COMPONENT_VERSION = "0.1.0"
+COMPONENT_DESCRIPTION = "Local attention and prediction system for LLM orchestration"
+
 # Global state for Hermes registration
 hermes_registration = None
 heartbeat_task = None
+start_time = None
+is_registered_with_hermes = False
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for Apollo"""
-    global hermes_registration, heartbeat_task
+    global hermes_registration, heartbeat_task, start_time, is_registered_with_hermes
+    
+    # Track startup time
+    start_time = time.time()
     
     # Startup
     logger.info("Starting Apollo Executive Coordinator API")
@@ -78,17 +97,17 @@ async def lifespan(app: FastAPI):
         try:
             # Get configuration
             config = get_component_config()
-            port = config.apollo.port if hasattr(config, 'apollo') else int(os.environ.get("APOLLO_PORT", 8012))
+            port = config.apollo.port if hasattr(config, 'apollo') else int(os.environ.get("APOLLO_PORT"))
             
             # Register with Hermes
             global hermes_registration, heartbeat_task
             hermes_registration = HermesRegistration()
             
             logger.info(f"Attempting to register Apollo with Hermes on port {port}")
-            is_registered = await hermes_registration.register_component(
+            is_registered_with_hermes = await hermes_registration.register_component(
                 component_name="apollo",
                 port=port,
-                version="0.1.0",
+                version=COMPONENT_VERSION,
                 capabilities=[
                     "llm_orchestration",
                     "context_observation",
@@ -102,7 +121,7 @@ async def lifespan(app: FastAPI):
                 }
             )
             
-            if is_registered:
+            if is_registered_with_hermes:
                 logger.info("Successfully registered with Hermes")
                 # Start heartbeat task
                 heartbeat_task = asyncio.create_task(
@@ -183,14 +202,15 @@ async def lifespan(app: FastAPI):
             app.state.apollo_manager = apollo_manager
             app.state.hermes_registration = hermes_registration
             
-            # Start components
+            # Start components that have start methods
             logger.info("Starting Apollo components...")
             await message_handler.start()
             await context_observer.start()
             await predictive_engine.start()
             await action_planner.start()
-            # Note: apollo_manager.start() tries to start protocol_enforcer and token_budget_manager
-            # which don't have start methods. Skip for now.
+            
+            # Mark as running without calling apollo_manager.start() 
+            # which tries to start components that don't have start methods
             apollo_manager.is_running = True
             
             logger.info("Apollo initialized successfully")
@@ -231,7 +251,8 @@ async def lifespan(app: FastAPI):
                 apollo_manager = app.state.apollo_manager
                 
                 # Stop components in reverse order
-                await apollo_manager.stop()
+                # Don't call apollo_manager.stop() as it tries to stop components without stop methods
+                apollo_manager.is_running = False
                 
                 if apollo_manager.action_planner:
                     await apollo_manager.action_planner.stop()
@@ -258,11 +279,13 @@ async def lifespan(app: FastAPI):
     # Socket release delay for macOS
     await asyncio.sleep(0.5)
 
-# Create FastAPI application
+# Create FastAPI application with standard configuration
 app = FastAPI(
-    title="Apollo Executive Coordinator API",
-    description="API for the Apollo executive coordinator for Tekton LLM operations",
-    version="0.1.0",
+    **get_openapi_configuration(
+        component_name=COMPONENT_NAME,
+        component_version=COMPONENT_VERSION,
+        component_description=COMPONENT_DESCRIPTION
+    ),
     lifespan=lifespan
 )
 
@@ -275,22 +298,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Create standard routers
+routers = create_standard_routers(COMPONENT_NAME)
+
 
 # Root endpoint
-@app.get("/")
+@routers.root.get("/")
 async def root():
     """Root endpoint for the Apollo API."""
-    port = 8012
-    
     return {
-        "name": "Apollo Executive Coordinator",
-        "version": "0.1.0",
+        "name": f"{COMPONENT_NAME} Executive Coordinator",
+        "version": COMPONENT_VERSION,
         "status": "running",
-        "documentation": f"http://localhost:{port}/docs"
+        "description": COMPONENT_DESCRIPTION,
+        "documentation": "/api/v1/docs"
     }
 
 # Health check endpoint
-@app.get("/health")
+@routers.root.get("/health")
 async def health_check():
     """Check the health of the Apollo component following Tekton standards."""
     try:
@@ -326,41 +351,112 @@ async def health_check():
         message = f"Apollo API is running (basic health check only)"
         logger.warning(f"Error in health check, using basic response: {e}")
     
-    # Format response according to Tekton standards
-    standardized_health = {
-        "status": health_status,
-        "component": "apollo",
-        "version": "0.1.0",
-        "port": 8012,
-        "message": message
-    }
+    # Use standardized health response
+    # Get port from config or environment
+    config = get_component_config()
+    port = config.apollo.port if hasattr(config, 'apollo') else int(os.environ.get("APOLLO_PORT"))
     
-    return JSONResponse(
-        content=standardized_health,
-        status_code=status_code
+    return create_health_response(
+        component_name="apollo",
+        port=port,
+        version=COMPONENT_VERSION,
+        status=health_status,
+        registered=is_registered_with_hermes,
+        details={"message": message}
     )
 
 
 
 
-# Include routers in app
-app.include_router(api_router)
+# Add ready endpoint
+routers.root.add_api_route(
+    "/ready",
+    create_ready_endpoint(
+        component_name=COMPONENT_NAME,
+        component_version=COMPONENT_VERSION,
+        start_time=start_time or 0,
+        readiness_check=lambda: hasattr(app.state, "apollo_manager") and app.state.apollo_manager is not None
+    ),
+    methods=["GET"]
+)
+
+# Add discovery endpoint to v1 router
+routers.v1.add_api_route(
+    "/discovery",
+    create_discovery_endpoint(
+        component_name=COMPONENT_NAME,
+        component_version=COMPONENT_VERSION,
+        component_description=COMPONENT_DESCRIPTION,
+        endpoints=[
+            EndpointInfo(
+                path="/api/v1/predict",
+                method="POST",
+                description="Get predictions for next user actions"
+            ),
+            EndpointInfo(
+                path="/api/v1/context",
+                method="GET",
+                description="Get current context summary"
+            ),
+            EndpointInfo(
+                path="/api/v1/budget",
+                method="GET",
+                description="Get token budget status"
+            ),
+            EndpointInfo(
+                path="/api/v1/protocol/validate",
+                method="POST",
+                description="Validate protocol compliance"
+            ),
+            EndpointInfo(
+                path="/ws",
+                method="WEBSOCKET",
+                description="WebSocket for real-time events"
+            ),
+            EndpointInfo(
+                path="/api/v1/metrics",
+                method="GET",
+                description="Get system metrics"
+            )
+        ],
+        capabilities=[
+            "llm_orchestration",
+            "context_observation",
+            "token_budget_management",
+            "predictive_planning",
+            "protocol_enforcement"
+        ],
+        dependencies={
+            "hermes": "http://localhost:8001",
+            "rhetor": "http://localhost:8003"
+        },
+        metadata={
+            "websocket_endpoint": "/ws",
+            "documentation": "/api/v1/docs"
+        }
+    ),
+    methods=["GET"]
+)
+
+# Mount standard routers
+mount_standard_routers(app, routers)
+
+# Include existing routers - these should be updated to use v1 prefix
+app.include_router(api_router, prefix="/api/v1")
 app.include_router(ws_router)
-app.include_router(metrics_router)
+app.include_router(metrics_router, prefix="/api/v1")
 app.include_router(mcp_router)
 
 # Main entry point
 if __name__ == "__main__":
-    from shared.utils.socket_server import run_with_socket_reuse
+    from shared.utils.socket_server import run_component_server
     
-    # Get port from environment variable or use default
+    # Get port from environment - NEVER hardcode
     port = int(os.environ.get("APOLLO_PORT"))
     
-    run_with_socket_reuse(
-        "apollo.api.app:app",
-        host="0.0.0.0",
-        port=port,
-        timeout_graceful_shutdown=3,
-        server_header=False,
-        access_log=False
+    run_component_server(
+        component_name="apollo",
+        app_module="apollo.api.app",
+        default_port=port,
+        reload=False
     )
