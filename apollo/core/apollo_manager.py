@@ -595,7 +595,7 @@ class ApolloManager:
         if not fastmcp_available:
             return []
             
-        return get_tools(self)
+        return get_tools()
     
     async def process_fastmcp_request(self, request: MCPRequest) -> MCPResponse:
         """
