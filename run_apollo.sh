@@ -3,7 +3,13 @@
 # This script starts the Apollo server with the appropriate environment variables
 
 # Ensure the script is run from the Apollo directory
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TEKTON_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$SCRIPT_DIR"
+
+# Set up environment and Python path
+source "$TEKTON_ROOT/shared/utils/setup_env.sh"
+setup_tekton_env "$SCRIPT_DIR" "$TEKTON_ROOT"
 
 # Load environment variables if .env file exists
 if [ -f .env ]; then

@@ -80,6 +80,7 @@ hermes_registration = None
 heartbeat_task = None
 start_time = None
 is_registered_with_hermes = False
+mcp_bridge = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -213,6 +214,16 @@ async def lifespan(app: FastAPI):
             # which tries to start components that don't have start methods
             apollo_manager.is_running = True
             
+            # Initialize Hermes MCP Bridge
+            try:
+                from apollo.core.mcp.hermes_bridge import ApolloMCPBridge
+                global mcp_bridge
+                mcp_bridge = ApolloMCPBridge(apollo_manager)
+                await mcp_bridge.initialize()
+                logger.info("Initialized Hermes MCP Bridge for FastMCP tools")
+            except Exception as e:
+                logger.warning(f"Failed to initialize MCP Bridge: {e}")
+            
             logger.info("Apollo initialized successfully")
             
         except Exception as e:
@@ -267,8 +278,19 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"Error cleaning up Apollo components: {e}")
     
+    async def cleanup_mcp_bridge():
+        """Cleanup MCP bridge"""
+        global mcp_bridge
+        if mcp_bridge:
+            try:
+                await mcp_bridge.shutdown()
+                logger.info("MCP bridge cleaned up")
+            except Exception as e:
+                logger.warning(f"Error cleaning up MCP bridge: {e}")
+    
     shutdown.register_cleanup(cleanup_hermes)
     shutdown.register_cleanup(cleanup_components)
+    shutdown.register_cleanup(cleanup_mcp_bridge)
     
     yield
     
