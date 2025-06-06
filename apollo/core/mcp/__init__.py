@@ -98,7 +98,8 @@ from apollo.core.mcp.tools import (
     register_message_tools,
     register_prediction_tools,
     register_protocol_tools,
-    register_budget_tools
+    register_budget_tools,
+    get_all_tools
 )
 
 # Define exports
@@ -117,6 +118,7 @@ __all__ = [
     "register_protocol_tools",
     "register_budget_tools",
     "get_tools",
+    "get_all_tools",
     
     # Availability flag
     "fastmcp_available"

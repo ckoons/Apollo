@@ -763,3 +763,39 @@ async def register_budget_tools(token_budget, tool_registry):
     await tool_registry.register_tool(optimize_context._mcp_tool_meta.to_dict())
     
     logger.info("Registered budget tools with MCP service")
+
+
+def get_all_tools(apollo_manager=None):
+    """Get all Apollo MCP tools."""
+    if not fastmcp_available:
+        logger.warning("FastMCP not available, returning empty tools list")
+        return []
+        
+    tools = []
+    
+    # Action planning tools
+    tools.append(plan_actions._mcp_tool_meta.to_dict())
+    tools.append(execute_action._mcp_tool_meta.to_dict())
+    
+    # Context observation tools
+    tools.append(analyze_context._mcp_tool_meta.to_dict())
+    tools.append(update_context._mcp_tool_meta.to_dict())
+    
+    # Message handling tools
+    tools.append(generate_response._mcp_tool_meta.to_dict())
+    tools.append(analyze_message._mcp_tool_meta.to_dict())
+    
+    # Prediction tools
+    tools.append(predict_next_action._mcp_tool_meta.to_dict())
+    tools.append(predict_outcome._mcp_tool_meta.to_dict())
+    
+    # Protocol tools
+    tools.append(validate_protocol._mcp_tool_meta.to_dict())
+    tools.append(enforce_protocol._mcp_tool_meta.to_dict())
+    
+    # Budget tools
+    tools.append(allocate_budget._mcp_tool_meta.to_dict())
+    tools.append(optimize_context._mcp_tool_meta.to_dict())
+    
+    logger.info(f"get_all_tools returning {len(tools)} Apollo MCP tools")
+    return tools
