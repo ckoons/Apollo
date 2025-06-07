@@ -94,7 +94,17 @@ class ApolloManager:
             enable_token_budget: Whether to enable the token budget
         """
         # Set up data directory
-        self.data_dir = data_dir or os.path.expanduser("~/.tekton/apollo")
+        # Set up data directory
+        if data_dir:
+            self.data_dir = data_dir
+        else:
+            # Use $TEKTON_DATA_DIR/apollo by default
+            default_data_dir = os.path.join(
+                os.environ.get('TEKTON_DATA_DIR', 
+                              os.path.join(os.environ.get('TEKTON_ROOT', os.path.expanduser('~')), '.tekton', 'data')),
+                'apollo'
+            )
+            self.data_dir = default_data_dir
         os.makedirs(self.data_dir, exist_ok=True)
         
         # Sub-directories for component data

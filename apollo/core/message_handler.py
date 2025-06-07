@@ -375,7 +375,16 @@ class MessageHandler:
         self.delivery_history_limit = delivery_history_limit
         
         # Set up data directory
-        self.data_dir = data_dir or os.path.expanduser("~/.tekton/apollo/message_data")
+        if data_dir:
+            self.data_dir = data_dir
+        else:
+            # Use $TEKTON_DATA_DIR/apollo/message_data by default
+            default_data_dir = os.path.join(
+                os.environ.get('TEKTON_DATA_DIR', 
+                              os.path.join(os.environ.get('TEKTON_ROOT', os.path.expanduser('~')), '.tekton', 'data')),
+                'apollo', 'message_data'
+            )
+            self.data_dir = default_data_dir
         os.makedirs(self.data_dir, exist_ok=True)
         
         # Initialize message queues

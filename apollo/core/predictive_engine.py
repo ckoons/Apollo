@@ -642,7 +642,16 @@ class PredictiveEngine:
         self.prediction_limit = prediction_limit
         
         # Set up data directory
-        self.data_dir = data_dir or os.path.expanduser("~/.tekton/apollo/prediction_data")
+        if data_dir:
+            self.data_dir = data_dir
+        else:
+            # Use $TEKTON_DATA_DIR/apollo/prediction_data by default
+            default_data_dir = os.path.join(
+                os.environ.get('TEKTON_DATA_DIR', 
+                              os.path.join(os.environ.get('TEKTON_ROOT', os.path.expanduser('~')), '.tekton', 'data')),
+                'apollo', 'prediction_data'
+            )
+            self.data_dir = default_data_dir
         os.makedirs(self.data_dir, exist_ok=True)
         
         # Initialize prediction rules

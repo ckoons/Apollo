@@ -133,7 +133,13 @@ async def lifespan(app: FastAPI):
                 logger.warning("Failed to register with Hermes - continuing without registration")
             
             # Create data directories
-            data_dir = os.environ.get("APOLLO_DATA_DIR", os.path.expanduser("~/.tekton/apollo"))
+            # Use APOLLO_DATA_DIR if set, otherwise use $TEKTON_DATA_DIR/apollo
+            default_data_dir = os.path.join(
+                os.environ.get('TEKTON_DATA_DIR', 
+                              os.path.join(os.environ.get('TEKTON_ROOT', os.path.expanduser('~')), '.tekton', 'data')), 
+                'apollo'
+            )
+            data_dir = os.environ.get("APOLLO_DATA_DIR", default_data_dir)
             os.makedirs(data_dir, exist_ok=True)
             
             # Sub-directories for component data
