@@ -83,7 +83,7 @@ class ApolloMCPBridge(MCPService):
                 
     async def register_fastmcp_tool(self, fastmcp_tool: Dict[str, Any]):
         """Register a single FastMCP tool with Hermes."""
-        tool_name = f"{self.component_name}.{fastmcp_tool['name']}"
+        tool_name = f"{self.component_name}_{fastmcp_tool['name']}"
         
         # Create handler that delegates to FastMCP
         async def handler(parameters: Dict[str, Any]) -> Dict[str, Any]:
@@ -136,7 +136,7 @@ class ApolloMCPBridge(MCPService):
             logger.warning("Hermes client not initialized")
             return
             
-        tool_name = f"{self.component_name}.{tool.name}"
+        tool_name = f"{self.component_name}_{tool.name}"
         
         try:
             await self.hermes_client.register_tool(
@@ -193,14 +193,14 @@ class ApolloMCPBridge(MCPService):
             
             # Add default tools
             tools_to_unregister.extend([
-                f"{self.component_name}.health_check",
-                f"{self.component_name}.component_info"
+                f"{self.component_name}_health_check",
+                f"{self.component_name}_component_info"
             ])
             
             # Add FastMCP tools
             if self._fastmcp_tools:
                 for tool in self._fastmcp_tools:
-                    tools_to_unregister.append(f"{self.component_name}.{tool['name']}")
+                    tools_to_unregister.append(f"{self.component_name}_{tool['name']}")
                     
             # Unregister all tools
             for tool_id in tools_to_unregister:
