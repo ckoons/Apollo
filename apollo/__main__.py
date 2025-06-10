@@ -17,17 +17,12 @@ except ImportError as e:
     print(f"[APOLLO] Continuing with system environment variables")
 
 from shared.utils.socket_server import run_component_server
+from shared.utils.env_config import get_component_config
 
 if __name__ == "__main__":
-    # Get port from environment variable
-    # The run_component_server will look for APOLLO_PORT in environment
-    # We pass None as default_port to force it to use environment
-    port_str = os.environ.get("APOLLO_PORT")
-    if not port_str:
-        print("Error: APOLLO_PORT not set in environment")
-        sys.exit(1)
-    
-    default_port = int(port_str)
+    # Get port from configuration
+    config = get_component_config()
+    default_port = config.apollo.port if hasattr(config, 'apollo') else int(os.environ.get("APOLLO_PORT"))
     
     run_component_server(
         component_name="apollo",

@@ -479,8 +479,9 @@ app.include_router(mcp_router)
 if __name__ == "__main__":
     from shared.utils.socket_server import run_component_server
     
-    # Get port from environment - NEVER hardcode
-    port = int(os.environ.get("APOLLO_PORT"))
+    # Get port from configuration
+    config = get_component_config()
+    port = config.apollo.port if hasattr(config, 'apollo') else int(os.environ.get("APOLLO_PORT"))
     
     run_component_server(
         component_name="apollo",
