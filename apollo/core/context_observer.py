@@ -138,8 +138,16 @@ class ContextObserver:
             # Get active contexts from Rhetor
             active_sessions = await self.rhetor_interface.get_active_sessions()
             
+            # Log the response for debugging
+            logger.debug(f"Active sessions from Rhetor: {active_sessions}")
+            
             # Update our context records
             for session in active_sessions:
+                # Check if session has context_id key
+                if "context_id" not in session:
+                    logger.warning(f"Session missing context_id: {session}")
+                    continue
+                    
                 context_id = session["context_id"]
                 
                 # Create metrics object
@@ -226,9 +234,10 @@ class ContextObserver:
                     self.context_history[context_id] = self.context_history[context_id][-self.history_limit:]
             
             # Check for closed contexts
+            active_context_ids = [s.get("context_id") for s in active_sessions if "context_id" in s]
             closed_contexts = [
                 context_id for context_id in self.active_contexts
-                if context_id not in [s["context_id"] for s in active_sessions]
+                if context_id not in active_context_ids
             ]
             
             # Handle closed contexts
