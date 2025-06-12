@@ -130,31 +130,55 @@ class RhetorInterface:
     
     async def get_active_sessions(self) -> List[Dict[str, Any]]:
         """
-        Get information about all active LLM sessions from Rhetor.
+        Get information about all active AI specialists as sessions from Rhetor.
         
         Returns:
             List of session information dictionaries
         """
         try:
-            response = await self._request("GET", "/contexts")
-            return response.get("contexts", [])
+            response = await self._request("GET", "/api/ai/specialists", params={"active_only": "true"})
+            
+            # Transform specialists to session format
+            sessions = []
+            for specialist in response.get("specialists", []):
+                sessions.append({
+                    "context_id": specialist["id"],
+                    "name": specialist["name"],
+                    "type": specialist["type"],
+                    "active": specialist["active"],
+                    "message_count": specialist["messages"],
+                    "session_count": specialist["sessions"],
+                    "model": specialist["model"]
+                })
+            return sessions
         except Exception as e:
             logger.error(f"Error getting active sessions from Rhetor: {e}")
             return []
     
     async def get_session_metrics(self, context_id: str) -> Dict[str, Any]:
         """
-        Get detailed metrics for a specific LLM session.
+        Get detailed metrics for a specific AI specialist session.
         
         Args:
-            context_id: Context identifier
+            context_id: Context/Specialist identifier
             
         Returns:
             Dictionary of session metrics
         """
         try:
-            response = await self._request("GET", f"/contexts/{context_id}")
-            return response
+            response = await self._request("GET", f"/api/ai/specialists/{context_id}")
+            
+            # Transform to metrics format
+            return {
+                "context_id": response["id"],
+                "metrics": {
+                    "message_count": response["messages"],
+                    "session_count": response["sessions"],
+                    "status": response["status"],
+                    "model": response["model"],
+                    "capabilities": response["capabilities"]
+                }
+            }
         except Exception as e:
             logger.error(f"Error getting session metrics for {context_id}: {e}")
             return {}
@@ -166,53 +190,42 @@ class RhetorInterface:
         max_tokens: Optional[int] = None
     ) -> bool:
         """
-        Request context compression for an LLM session.
+        Request context compression for an AI specialist session.
+        Note: Compression not yet implemented in Rhetor.
         
         Args:
-            context_id: Context identifier
+            context_id: Context/Specialist identifier
             level: Compression level (light, moderate, aggressive)
             max_tokens: Maximum tokens to retain after compression
             
         Returns:
             True if the request was successful
         """
-        try:
-            data = {
-                "operation": "compress",
-                "context_id": context_id,
-                "parameters": {
-                    "level": level
-                }
-            }
-            
-            if max_tokens is not None:
-                data["parameters"]["max_tokens"] = max_tokens
-                
-            response = await self._request("POST", "/contexts/operations", json=data)
-            return response.get("success", False)
-            
-        except Exception as e:
-            logger.error(f"Error requesting context compression for {context_id}: {e}")
-            return False
+        logger.warning(f"Context compression not yet implemented in Rhetor for {context_id}")
+        # TODO: Implement when Rhetor adds compression support
+        return False
     
     async def reset_context(self, context_id: str) -> bool:
         """
-        Request a context reset for an LLM session.
+        Request a context reset for an AI specialist session.
+        This is done by deactivating and reactivating the specialist.
         
         Args:
-            context_id: Context identifier
+            context_id: Context/Specialist identifier
             
         Returns:
             True if the request was successful
         """
         try:
-            data = {
-                "operation": "reset",
-                "context_id": context_id,
-                "parameters": {}
-            }
+            # First try to deactivate
+            try:
+                await self._request("POST", f"/api/ai/specialists/{context_id}/deactivate")
+            except Exception:
+                # Deactivation might not be implemented yet
+                pass
             
-            response = await self._request("POST", "/contexts/operations", json=data)
+            # Then reactivate
+            response = await self._request("POST", f"/api/ai/specialists/{context_id}/activate")
             return response.get("success", False)
             
         except Exception as e:
@@ -226,10 +239,10 @@ class RhetorInterface:
         priority: int = 5
     ) -> bool:
         """
-        Inject a system message into an LLM context.
+        Inject a system message into an AI specialist context.
         
         Args:
-            context_id: Context identifier
+            context_id: Context/Specialist identifier
             message: System message to inject
             priority: Message priority (0-10)
             
@@ -238,15 +251,16 @@ class RhetorInterface:
         """
         try:
             data = {
-                "operation": "inject_system_message",
+                "message": f"SYSTEM[{priority}]: {message}",
                 "context_id": context_id,
-                "parameters": {
-                    "message": message,
+                "streaming": False,
+                "options": {
+                    "type": "system",
                     "priority": priority
                 }
             }
             
-            response = await self._request("POST", "/contexts/operations", json=data)
+            response = await self._request("POST", f"/api/ai/specialists/{context_id}/message", json=data)
             return response.get("success", False)
             
         except Exception as e:
