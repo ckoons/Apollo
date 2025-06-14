@@ -810,10 +810,15 @@ class PredictiveEngine:
             weights = [1.0 for _ in predictions]
         else:
             # Calculate normalized weights
-            weights = [
-                (next((r for r in self.prediction_rules if r.name == p.basis), None).weight * p.confidence) / total_weight
-                for p in predictions
-            ]
+            weights = []
+            for p in predictions:
+                rule = next((r for r in self.prediction_rules if r.name == p.basis), None)
+                if rule and rule.weight is not None:
+                    weight = (rule.weight * p.confidence) / total_weight
+                else:
+                    # Default weight if rule not found or weight is None
+                    weight = p.confidence / total_weight
+                weights.append(weight)
         
         # Combine metrics
         combined_metrics = ContextMetrics(
