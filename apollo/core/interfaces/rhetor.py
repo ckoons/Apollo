@@ -141,14 +141,20 @@ class RhetorInterface:
             # Transform specialists to session format
             sessions = []
             for specialist in response.get("specialists", []):
+                # Handle both "id" and "specialist_id" fields
+                specialist_id = specialist.get("id") or specialist.get("specialist_id")
+                if not specialist_id:
+                    logger.warning(f"Specialist missing ID field: {specialist}")
+                    continue
+                    
                 sessions.append({
-                    "context_id": specialist["id"],
-                    "name": specialist["name"],
-                    "type": specialist["type"],
-                    "active": specialist["active"],
-                    "message_count": specialist["messages"],
-                    "session_count": specialist["sessions"],
-                    "model": specialist["model"]
+                    "context_id": specialist_id,
+                    "name": specialist.get("name", specialist_id),
+                    "type": specialist.get("type") or specialist.get("specialist_type", "unknown"),
+                    "active": specialist.get("active", specialist.get("status") == "active"),
+                    "message_count": specialist.get("messages", 0),
+                    "session_count": specialist.get("sessions", 0),
+                    "model": specialist.get("model", "unknown")
                 })
             return sessions
         except Exception as e:
@@ -168,15 +174,17 @@ class RhetorInterface:
         try:
             response = await self._request("GET", f"/api/v1/specialists/{context_id}")
             
-            # Transform to metrics format
+            # Transform to metrics format, handling both "id" and "specialist_id"
+            specialist_id = response.get("id") or response.get("specialist_id", context_id)
+            
             return {
-                "context_id": response["id"],
+                "context_id": specialist_id,
                 "metrics": {
-                    "message_count": response["messages"],
-                    "session_count": response["sessions"],
-                    "status": response["status"],
-                    "model": response["model"],
-                    "capabilities": response["capabilities"]
+                    "message_count": response.get("messages", 0),
+                    "session_count": response.get("sessions", 0),
+                    "status": response.get("status", "unknown"),
+                    "model": response.get("model", "unknown"),
+                    "capabilities": response.get("capabilities", [])
                 }
             }
         except Exception as e:
