@@ -136,7 +136,7 @@ class RhetorInterface:
             List of session information dictionaries
         """
         try:
-            response = await self._request("GET", "/api/ai/specialists", params={"active_only": "true"})
+            response = await self._request("GET", "/api/v1/specialists", params={"active_only": "true"})
             
             # Transform specialists to session format
             sessions = []
@@ -166,7 +166,7 @@ class RhetorInterface:
             Dictionary of session metrics
         """
         try:
-            response = await self._request("GET", f"/api/ai/specialists/{context_id}")
+            response = await self._request("GET", f"/api/v1/specialists/{context_id}")
             
             # Transform to metrics format
             return {
@@ -219,13 +219,13 @@ class RhetorInterface:
         try:
             # First try to deactivate
             try:
-                await self._request("POST", f"/api/ai/specialists/{context_id}/deactivate")
+                await self._request("POST", f"/api/v1/specialists/{context_id}/stop")
             except Exception:
                 # Deactivation might not be implemented yet
                 pass
             
             # Then reactivate
-            response = await self._request("POST", f"/api/ai/specialists/{context_id}/activate")
+            response = await self._request("POST", f"/api/v1/specialists/{context_id}/start")
             return response.get("success", False)
             
         except Exception as e:
@@ -260,7 +260,7 @@ class RhetorInterface:
                 }
             }
             
-            response = await self._request("POST", f"/api/ai/specialists/{context_id}/message", json=data)
+            response = await self._request("POST", f"/api/v1/chat", json=data)
             return response.get("success", False)
             
         except Exception as e:
